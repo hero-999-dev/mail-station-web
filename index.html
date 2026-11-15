@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Test_Mail_Station</title>
+<!--
+  The same gate as project-lea-web and pixel-pomo-web, with the same "lea:" prefix, so the
+  account's one password opens it and the directory name equals project-lea-web's.
+
+  The pages live at p-<sha256("lea:<password>")[:20]>/, derived here at submit time. Neither the
+  password nor the directory name is in this file: a wrong password derives a directory that does
+  not exist and the HEAD request 404s.
+
+  It locks the published link, not the repository: the repository is public, so the directory
+  is visible there. Google's consent screen links straight to the home page and the privacy
+  policy inside the directory, so Google and anyone who signs in reach them without a password.
+
+  crypto.subtle needs a secure context, so this page works over https and not over file://.
+-->
+<style>
+  :root {
+    --bg: #0e1116; --panel: #151a22; --ink: #d8dde6; --dim: #9aa4b2;
+    --rule: #2a313c; --accent: #ff9f1c; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid; place-items: center; background: var(--bg); color: var(--ink); padding: 1.5rem;
+    font: 15px/1.55 Consolas, "Courier New", monospace;
+  }
+  .box {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 1.6rem 1.5rem 1.4rem; width: min(26rem, 100%);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  h1 { font-size: 1.1rem; margin: 0 0 0.15rem; color: var(--accent); }
+  .sub { margin: 0 0 1.1rem; color: var(--dim); font-size: 0.86rem; }
+  label { display: block; font-size: 0.8rem; color: var(--dim); margin-bottom: 0.3rem; }
+  input, button {
+    width: 100%; font: inherit; border-radius: 3px; border: 1px solid var(--rule);
+    padding: 0.5rem 0.65rem; background: var(--bg); color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    margin-top: 0.6rem; background: var(--accent); border-color: var(--accent); color: #111;
+    font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  #msg { min-height: 1.3rem; margin-top: 0.6rem; font-size: 0.82rem; color: var(--dim); }
+  #msg.bad { color: var(--bad); }
+  .fine { margin: 1rem 0 0; font-size: 0.75rem; color: var(--dim); line-height: 1.45; }
+  .langs { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; }
+  .langs button {
+    width: auto; margin: 0; padding: 0.15rem 0.55rem; font-size: 0.76rem; font-weight: 500;
+    background: transparent; color: var(--dim); border-color: var(--rule);
+  }
+  .langs button.on { background: var(--accent); border-color: var(--accent); color: #111; }
+</style>
+</head>
+<body>
+<main class="box">
+  <div class="langs">
+    <button type="button" data-lang="tr">Türkçe</button>
+    <button type="button" data-lang="en">English</button>
+  </div>
+  <h1>Test_Mail_Station</h1>
+  <p class="sub" id="sub"></p>
+
+  <label for="pw" id="pwLabel"></label>
+  <input id="pw" type="password" autocomplete="current-password" autofocus>
+  <button id="go" type="button"></button>
+  <div id="msg" role="status" aria-live="polite"></div>
+
+  <p class="fine" id="fine"></p>
+</main>
+
+<script>
+const L = {
+  tr: {
+    sub: 'Devam etmek için şifreyi gir.',
+    pw: 'Şifre', go: 'GİR',
+    check: 'Kontrol ediliyor…',
+    empty: 'Şifre boş.',
+    wrong: 'Şifre yanlış.',
+    offline: 'Bu sayfa şifreyi tarayıcının kripto API’siyle çözüyor, o da yalnızca https ' +
+             'üzerinde çalışır.',
+    fine: 'Girdikten sonra açılan sayfayı yer imine eklersen bir daha sormaz. ' +
+          'Şifre bu sayfanın kaynağında yazmıyor; doğru şifre sayfaların bulunduğu dizinin ' +
+          'adını üretiyor.'
+  },
+  en: {
+    sub: 'Enter the password to continue.',
+    pw: 'Password', go: 'ENTER',
+    check: 'Checking…',
+    empty: 'Password is empty.',
+    wrong: 'Wrong password.',
+    offline: 'This page derives the password with the browser crypto API, which only works over ' +
+             'https.',
+    fine: 'Bookmark the page that opens and it will not ask again. The password is not in this ' +
+          'page’s source; the correct one derives the name of the directory the pages are in.'
+  }
+};
+
+let lang = (navigator.language || 'tr').slice(0, 2) === 'tr' ? 'tr' : 'en';
+const $ = (id) => document.getElementById(id);
+
+function paint() {
+  const s = L[lang];
+  document.documentElement.lang = lang;
+  $('sub').textContent = s.sub;
+  $('pwLabel').textContent = s.pw;
+  $('go').textContent = s.go;
+  $('fine').textContent = s.fine;
+  document.querySelectorAll('.langs button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.lang === lang);
+  });
+  // file:// has no crypto.subtle, so say so up front rather than failing at submit.
+  if (!window.crypto || !crypto.subtle) {
+    $('go').disabled = true;
+    $('pw').disabled = true;
+    $('msg').className = 'bad';
+    $('msg').textContent = s.offline;
+  }
+}
+
+document.querySelectorAll('.langs button').forEach((b) => {
+  b.addEventListener('click', () => { lang = b.dataset.lang; paint(); });
+});
+
+async function enter() {
+  const s = L[lang], msg = $('msg');
+  const pass = $('pw').value.trim();
+  msg.className = '';
+  if (!pass) { msg.className = 'bad'; msg.textContent = s.empty; return; }
+  $('go').disabled = true;
+  msg.textContent = s.check;
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('lea:' + pass));
+    const hex = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const dir = 'p-' + hex.slice(0, 20) + '/';
+    // A HEAD that 404s is the whole check: the wrong password names a directory that is not there.
+    const r = await fetch(dir + 'index.html', { method: 'HEAD', cache: 'no-store' });
+    if (r.ok) { location.href = dir; return; }
+  } catch (e) { /* falls through to the same message - a failed fetch is a failed check */ }
+  msg.className = 'bad';
+  msg.textContent = s.wrong;
+  $('go').disabled = false;
+  $('pw').select();
+}
+
+$('go').addEventListener('click', enter);
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
+paint();
+</script>
+</body>
+</html>
